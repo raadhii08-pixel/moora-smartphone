@@ -14,6 +14,11 @@
     .step-title { border-left: 4px solid #0d6efd; padding-left: 10px; margin-top: 25px; }
     .badge-jenis-benefit { background-color: #198754; }
     .badge-jenis-cost { background-color: #dc3545; }
+    input.form-control, select.form-select { min-width: 90px; }
+    input.nama-input { min-width: 150px; }
+    .bobot-warning { color: #dc3545; font-weight: 600; }
+    .bobot-ok { color: #198754; font-weight: 600; }
+    .btn-hapus { padding: 0.15rem 0.5rem; }
   </style>
 </head>
 <body>
@@ -24,56 +29,59 @@
     <h2 class="fw-bold">Sistem Pendukung Keputusan</h2>
     <h4 class="text-primary">Pemilihan Smartphone Terbaik — Metode MOORA</h4>
     <p class="text-muted mb-0">Multi-Objective Optimization on the Basis of Ratio Analysis</p>
-    <p class="text-muted small mb-0">Nama: M. Radhi As Shidqie — NIM: 231011401741</p>
   </div>
 
-  <!-- DATA ALTERNATIF & KRITERIA -->
+  <!-- KRITERIA -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-      <h5 class="card-title">1. Data Alternatif</h5>
-      <p class="text-muted">4 alternatif smartphone dengan 5 kriteria penilaian (data dummy).</p>
-      <div class="table-responsive">
-        <table class="table table-bordered table-sm text-center align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Alternatif</th>
-              <th>C1 - Harga (Rp)</th>
-              <th>C2 - RAM (GB)</th>
-              <th>C3 - Baterai (mAh)</th>
-              <th>C4 - Kamera (skor)</th>
-              <th>C5 - Berat (gram)</th>
-            </tr>
-          </thead>
-          <tbody id="tabel-data"></tbody>
-        </table>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="card-title mb-0">1. Kriteria, Bobot &amp; Jenis</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="tambahKriteria()">+ Tambah Kriteria</button>
       </div>
-
-      <h5 class="card-title mt-4">2. Bobot &amp; Jenis Kriteria</h5>
-      <div class="table-responsive">
+      <div class="table-responsive mt-3">
         <table class="table table-bordered table-sm text-center align-middle">
           <thead class="table-light">
             <tr>
               <th>Kode</th>
-              <th>Kriteria</th>
+              <th>Nama Kriteria</th>
               <th>Bobot</th>
               <th>Jenis</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="tabel-kriteria"></tbody>
         </table>
       </div>
-      <p class="text-muted mb-0">Total bobot = <span id="total-bobot" class="fw-bold"></span></p>
+      <p class="mb-0">Total bobot: <span id="total-bobot">-</span> <small class="text-muted">(harus = 1.00)</small></p>
+    </div>
+  </div>
+
+  <!-- DATA ALTERNATIF -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="card-title mb-0">2. Data Alternatif</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="tambahAlternatif()">+ Tambah Alternatif</button>
+      </div>
+      <div class="table-responsive mt-3">
+        <table class="table table-bordered table-sm text-center align-middle">
+          <thead class="table-light" id="head-data-alternatif"></thead>
+          <tbody id="tabel-data-alternatif"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <div class="text-center mb-4">
     <button class="btn btn-primary btn-lg" onclick="hitungMOORA()">Hitung MOORA</button>
+    <button class="btn btn-outline-secondary btn-lg ms-2" onclick="resetData()">Reset ke Data Awal</button>
   </div>
+
+  <div id="error-area" class="alert alert-danger d-none"></div>
 
   <!-- HASIL -->
   <div id="hasil-area" class="d-none">
 
-    <!-- Rekomendasi terbaik -->
     <div class="card shadow-sm mb-4 border-success">
       <div class="card-body text-center">
         <h5 class="card-title">Rekomendasi Terbaik</h5>
@@ -81,7 +89,6 @@
       </div>
     </div>
 
-    <!-- Step 1: Matriks Keputusan -->
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="step-title">Langkah 1 — Matriks Keputusan (X)</h5>
@@ -94,7 +101,6 @@
       </div>
     </div>
 
-    <!-- Step 2: Normalisasi -->
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="step-title">Langkah 2 — Normalisasi Matriks (X*)</h5>
@@ -118,7 +124,6 @@
       </div>
     </div>
 
-    <!-- Step 3: Nilai Optimasi -->
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="step-title">Langkah 3 — Nilai Optimasi (Yi)</h5>
@@ -134,7 +139,6 @@
       </div>
     </div>
 
-    <!-- Step 4: Ranking -->
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="step-title">Langkah 4 — Hasil Perangkingan</h5>
@@ -157,66 +161,177 @@
 
 <script>
 // =========================================
-// DATA DUMMY: 4 Alternatif, 5 Kriteria
+// STATE (data dummy default, semua editable)
 // =========================================
-const alternatif = ["S1 - Phantom X", "S2 - Velora 5G", "S3 - Nexora Pro", "S4 - Astra Lite"];
-
-// Setiap baris = [C1 Harga, C2 RAM, C3 Baterai, C4 Kamera, C5 Berat]
-const dataMatriks = [
-  [3500000, 6,  5000, 85, 190], // S1
-  [4200000, 8,  4500, 90, 175], // S2
-  [2800000, 4,  5000, 75, 200], // S3
-  [3100000, 6,  4000, 80, 165], // S4
+const DEFAULT_KRITERIA = [
+  { kode: "C1", nama: "Harga (Rp)",    bobot: 0.30, jenis: "Cost" },
+  { kode: "C2", nama: "RAM (GB)",      bobot: 0.25, jenis: "Benefit" },
+  { kode: "C3", nama: "Baterai (mAh)", bobot: 0.20, jenis: "Benefit" },
+  { kode: "C4", nama: "Kamera (skor)", bobot: 0.15, jenis: "Benefit" },
+  { kode: "C5", nama: "Berat (gram)",  bobot: 0.10, jenis: "Cost" },
 ];
 
-const kriteria = [
-  { kode: "C1", nama: "Harga (Rp)",        bobot: 0.30, jenis: "Cost" },
-  { kode: "C2", nama: "RAM (GB)",          bobot: 0.25, jenis: "Benefit" },
-  { kode: "C3", nama: "Baterai (mAh)",     bobot: 0.20, jenis: "Benefit" },
-  { kode: "C4", nama: "Kamera (skor)",     bobot: 0.15, jenis: "Benefit" },
-  { kode: "C5", nama: "Berat (gram)",      bobot: 0.10, jenis: "Cost" },
+const DEFAULT_ALTERNATIF = [
+  { nama: "S1 - Phantom X", nilai: [3500000, 6, 5000, 85, 190] },
+  { nama: "S2 - Velora 5G", nilai: [4200000, 8, 4500, 90, 175] },
+  { nama: "S3 - Nexora Pro", nilai: [2800000, 4, 5000, 75, 200] },
+  { nama: "S4 - Astra Lite", nilai: [3100000, 6, 4000, 80, 165] },
 ];
 
+let kriteria = [];
+let alternatif = [];
+let kriteriaCounter = 0;
+
+function cloneDefault() {
+  kriteria = JSON.parse(JSON.stringify(DEFAULT_KRITERIA));
+  alternatif = JSON.parse(JSON.stringify(DEFAULT_ALTERNATIF));
+  kriteriaCounter = kriteria.length;
+}
+
 // =========================================
-// RENDER TABEL AWAL (data & kriteria)
+// RENDER: TABEL KRITERIA
 // =========================================
-function renderDataAwal() {
-  const tbodyData = document.getElementById("tabel-data");
-  dataMatriks.forEach((row, i) => {
+function renderKriteria() {
+  const tbody = document.getElementById("tabel-kriteria");
+  tbody.innerHTML = "";
+  kriteria.forEach((k, j) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="fw-semibold">${alternatif[i]}</td>` +
-      row.map(v => `<td>${v.toLocaleString('id-ID')}</td>`).join("");
-    tbodyData.appendChild(tr);
+    tr.innerHTML = `
+      <td class="fw-semibold">${k.kode}</td>
+      <td><input type="text" class="form-control form-control-sm nama-input" value="${k.nama}"
+            onchange="updateKriteriaNama(${j}, this.value)"></td>
+      <td><input type="number" step="0.01" min="0" max="1" class="form-control form-control-sm" value="${k.bobot}"
+            onchange="updateKriteriaBobot(${j}, this.value)"></td>
+      <td>
+        <select class="form-select form-select-sm" onchange="updateKriteriaJenis(${j}, this.value)">
+          <option value="Benefit" ${k.jenis === "Benefit" ? "selected" : ""}>Benefit</option>
+          <option value="Cost" ${k.jenis === "Cost" ? "selected" : ""}>Cost</option>
+        </select>
+      </td>
+      <td><button class="btn btn-sm btn-outline-danger btn-hapus" onclick="hapusKriteria(${j})"
+            ${kriteria.length <= 1 ? "disabled" : ""}>&times;</button></td>
+    `;
+    tbody.appendChild(tr);
   });
 
-  const tbodyKriteria = document.getElementById("tabel-kriteria");
-  let totalBobot = 0;
-  kriteria.forEach(k => {
-    totalBobot += k.bobot;
-    const badgeClass = k.jenis === "Benefit" ? "badge-jenis-benefit" : "badge-jenis-cost";
+  const total = kriteria.reduce((s, k) => s + parseFloat(k.bobot || 0), 0);
+  const totalEl = document.getElementById("total-bobot");
+  totalEl.textContent = total.toFixed(2);
+  totalEl.className = Math.abs(total - 1) < 0.001 ? "bobot-ok" : "bobot-warning";
+}
+
+function updateKriteriaNama(j, val) {
+  kriteria[j].nama = val;
+}
+function updateKriteriaBobot(j, val) {
+  kriteria[j].bobot = parseFloat(val) || 0;
+  renderKriteria();
+}
+function updateKriteriaJenis(j, val) {
+  kriteria[j].jenis = val;
+}
+function hapusKriteria(j) {
+  if (kriteria.length <= 1) return;
+  kriteria.splice(j, 1);
+  alternatif.forEach(a => a.nilai.splice(j, 1));
+  renderKriteria();
+  renderDataAlternatif();
+}
+function tambahKriteria() {
+  kriteriaCounter++;
+  kriteria.push({ kode: "C" + kriteriaCounter, nama: "Kriteria Baru", bobot: 0, jenis: "Benefit" });
+  alternatif.forEach(a => a.nilai.push(0));
+  renderKriteria();
+  renderDataAlternatif();
+}
+
+// =========================================
+// RENDER: TABEL DATA ALTERNATIF
+// =========================================
+function renderDataAlternatif() {
+  const head = document.getElementById("head-data-alternatif");
+  head.innerHTML = "<tr><th>Alternatif</th>" +
+    kriteria.map(k => `<th>${k.kode}<br><small>${k.nama}</small></th>`).join("") +
+    "<th></th></tr>";
+
+  const tbody = document.getElementById("tabel-data-alternatif");
+  tbody.innerHTML = "";
+  alternatif.forEach((a, i) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${k.kode}</td><td class="text-start">${k.nama}</td><td>${k.bobot.toFixed(2)}</td>
-                     <td><span class="badge ${badgeClass}">${k.jenis}</span></td>`;
-    tbodyKriteria.appendChild(tr);
+    let row = `<td><input type="text" class="form-control form-control-sm nama-input" value="${a.nama}"
+                  onchange="updateAlternatifNama(${i}, this.value)"></td>`;
+    kriteria.forEach((k, j) => {
+      row += `<td><input type="number" step="any" class="form-control form-control-sm" value="${a.nilai[j]}"
+                onchange="updateAlternatifNilai(${i}, ${j}, this.value)"></td>`;
+    });
+    row += `<td><button class="btn btn-sm btn-outline-danger btn-hapus" onclick="hapusAlternatif(${i})"
+              ${alternatif.length <= 1 ? "disabled" : ""}>&times;</button></td>`;
+    tr.innerHTML = row;
+    tbody.appendChild(tr);
   });
-  document.getElementById("total-bobot").textContent = totalBobot.toFixed(2);
+}
+
+function updateAlternatifNama(i, val) {
+  alternatif[i].nama = val;
+}
+function updateAlternatifNilai(i, j, val) {
+  alternatif[i].nilai[j] = parseFloat(val) || 0;
+}
+function hapusAlternatif(i) {
+  if (alternatif.length <= 1) return;
+  alternatif.splice(i, 1);
+  renderDataAlternatif();
+}
+function tambahAlternatif() {
+  const nilaiBaru = kriteria.map(() => 0);
+  alternatif.push({ nama: "Alternatif Baru", nilai: nilaiBaru });
+  renderDataAlternatif();
+}
+
+function resetData() {
+  cloneDefault();
+  renderKriteria();
+  renderDataAlternatif();
+  document.getElementById("hasil-area").classList.add("d-none");
+  document.getElementById("error-area").classList.add("d-none");
 }
 
 // =========================================
 // HITUNG MOORA
 // =========================================
+function showError(msg) {
+  const el = document.getElementById("error-area");
+  el.textContent = msg;
+  el.classList.remove("d-none");
+  document.getElementById("hasil-area").classList.add("d-none");
+}
+
 function hitungMOORA() {
+  document.getElementById("error-area").classList.add("d-none");
+
+  // Validasi total bobot
+  const totalBobot = kriteria.reduce((s, k) => s + parseFloat(k.bobot || 0), 0);
+  if (Math.abs(totalBobot - 1) > 0.001) {
+    showError(`Total bobot kriteria harus = 1.00 (saat ini = ${totalBobot.toFixed(2)}). Perbaiki bobot sebelum menghitung.`);
+    return;
+  }
+  if (alternatif.length < 1 || kriteria.length < 1) {
+    showError("Minimal harus ada 1 alternatif dan 1 kriteria.");
+    return;
+  }
+
   const n = alternatif.length;
   const m = kriteria.length;
+  const dataMatriks = alternatif.map(a => a.nilai);
 
-  // --- Step 1: Tampilkan matriks keputusan ---
-  const headX = document.getElementById("head-matriks-x");
-  headX.innerHTML = "<th>Alternatif</th>" + kriteria.map(k => `<th>${k.kode}</th>`).join("");
+  // --- Step 1: Matriks keputusan ---
+  document.getElementById("head-matriks-x").innerHTML =
+    "<th>Alternatif</th>" + kriteria.map(k => `<th>${k.kode}<br><small>${k.nama}</small></th>`).join("");
   const bodyX = document.getElementById("body-matriks-x");
   bodyX.innerHTML = "";
   dataMatriks.forEach((row, i) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i]}</td>` +
+    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i].nama}</td>` +
       row.map(v => `<td>${v}</td>`).join("");
     bodyX.appendChild(tr);
   });
@@ -225,34 +340,28 @@ function hitungMOORA() {
   const akar = [];
   for (let j = 0; j < m; j++) {
     let sumSq = 0;
-    for (let i = 0; i < n; i++) {
-      sumSq += dataMatriks[i][j] * dataMatriks[i][j];
-    }
+    for (let i = 0; i < n; i++) sumSq += dataMatriks[i][j] * dataMatriks[i][j];
     akar.push(Math.sqrt(sumSq));
   }
-
-  const headAkar = document.getElementById("head-akar");
-  headAkar.innerHTML = kriteria.map(k => `<th>${k.kode}</th>`).join("");
-  const bodyAkar = document.getElementById("body-akar");
-  bodyAkar.innerHTML = `<tr>` + akar.map(a => `<td>${a.toFixed(4)}</td>`).join("") + `</tr>`;
+  document.getElementById("head-akar").innerHTML = kriteria.map(k => `<th>${k.kode}</th>`).join("");
+  document.getElementById("body-akar").innerHTML =
+    "<tr>" + akar.map(a => `<td>${a.toFixed(4)}</td>`).join("") + "</tr>";
 
   // --- Step 2b: Normalisasi ---
-  const normalisasi = dataMatriks.map(row => row.map((v, j) => v / akar[j]));
-
-  const headNorm = document.getElementById("head-normalisasi");
-  headNorm.innerHTML = "<th>Alternatif</th>" + kriteria.map(k => `<th>${k.kode}</th>`).join("");
+  const normalisasi = dataMatriks.map(row => row.map((v, j) => akar[j] === 0 ? 0 : v / akar[j]));
+  document.getElementById("head-normalisasi").innerHTML =
+    "<th>Alternatif</th>" + kriteria.map(k => `<th>${k.kode}</th>`).join("");
   const bodyNorm = document.getElementById("body-normalisasi");
   bodyNorm.innerHTML = "";
   normalisasi.forEach((row, i) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i]}</td>` +
+    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i].nama}</td>` +
       row.map(v => `<td>${v.toFixed(4)}</td>`).join("");
     bodyNorm.appendChild(tr);
   });
 
   // --- Step 3: Nilai optimasi Yi ---
-  const headOpt = document.getElementById("head-optimasi");
-  headOpt.innerHTML = "<th>Alternatif</th>" +
+  document.getElementById("head-optimasi").innerHTML = "<th>Alternatif</th>" +
     kriteria.map(k => `<th>${k.kode}<br><small>(${k.jenis === "Benefit" ? "+" : "-"}${k.bobot})</small></th>`).join("") +
     "<th>Yi</th>";
 
@@ -270,14 +379,14 @@ function hitungMOORA() {
     hasilYi.push(yi);
 
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i]}</td>` +
+    tr.innerHTML = `<td class="fw-semibold text-start">${alternatif[i].nama}</td>` +
       kontribusi.map((v, j) => `<td>${kriteria[j].jenis === "Benefit" ? "+" : "-"}${v.toFixed(4)}</td>`).join("") +
       `<td class="fw-bold">${yi.toFixed(4)}</td>`;
     bodyOpt.appendChild(tr);
   });
 
   // --- Step 4: Ranking ---
-  const ranking = alternatif.map((nama, i) => ({ nama, yi: hasilYi[i] }))
+  const ranking = alternatif.map((a, i) => ({ nama: a.nama, yi: hasilYi[i] }))
     .sort((a, b) => b.yi - a.yi);
 
   const bodyRank = document.getElementById("tabel-ranking");
@@ -296,7 +405,10 @@ function hitungMOORA() {
   document.getElementById("hasil-area").scrollIntoView({ behavior: "smooth" });
 }
 
-renderDataAwal();
+// init
+cloneDefault();
+renderKriteria();
+renderDataAlternatif();
 </script>
 
 </body>
